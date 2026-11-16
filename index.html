@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Truchet hexagonal</title>
+<meta name="description" content="Créez des images à partir de tuiles hexagonales de Truchet dont les motifs se raccordent quelle que soit leur orientation.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 28 9v14l-12 7-12-7V9z' fill='%23c8322d'/%3E%3Cpath d='M10 5.5a7 7 0 0 0 12 0M28 16h-24' stroke='%23f3efe7' stroke-width='3.5' fill='none'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7-12-7V9z" fill="var(--accent)"/><path d="M10 5.5a7 7 0 0 0 12 0M28 16H4M10 26.5a7 7 0 0 1 12 0" stroke="var(--logo-ink)" stroke-width="3" fill="none"/></svg>
+    <div>
+      <h1>Truchet hexagonal</h1>
+      <p>des tuiles qui se raccordent dans tous les sens</p>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="btnShuffle" title="Nouvelle graine aléatoire (N)">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.4" class="fill"/><circle cx="15.5" cy="15.5" r="1.4" class="fill"/><circle cx="15.5" cy="8.5" r="1.4" class="fill"/><circle cx="8.5" cy="15.5" r="1.4" class="fill"/></svg>
+      <span>Nouvelle grille</span></button>
+    <button class="btn" id="btnAnim" aria-pressed="false" title="Faire défiler les motifs rayés et pointillés (espace)">
+      <svg viewBox="0 0 24 24" class="i-play"><path d="M7 4.5v15l12-7.5z"/></svg>
+      <svg viewBox="0 0 24 24" class="i-pause"><path d="M8 5v14M16 5v14"/></svg>
+      <span>Animer</span></button>
+    <div class="menu">
+      <button class="btn primary" id="btnExport" aria-haspopup="true">
+        <svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+        <span>Exporter</span></button>
+      <div class="menu-pop" role="menu">
+        <button role="menuitem" data-act="png"><b>Image PNG</b><small id="pngSize"></small></button>
+        <button role="menuitem" data-act="svg"><b>Image vectorielle SVG</b><small>pour l'impression ou l'édition</small></button>
+      </div>
+    </div>
+    <div class="menu">
+      <button class="btn icon" id="btnMore" aria-haspopup="true" title="Projet">
+        <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" class="fill"/><circle cx="12" cy="12" r="1.5" class="fill"/><circle cx="19" cy="12" r="1.5" class="fill"/></svg></button>
+      <div class="menu-pop right" role="menu">
+        <button role="menuitem" data-act="share"><b>Copier le lien de partage</b><small>le projet entier tient dans l'adresse</small></button>
+        <button role="menuitem" data-act="save"><b>Enregistrer le projet…</b><small>fichier .json</small></button>
+        <button role="menuitem" data-act="open"><b>Ouvrir un projet…</b></button>
+        <hr>
+        <button role="menuitem" data-act="reset" class="danger"><b>Tout réinitialiser</b></button>
+      </div>
+    </div>
+    <input type="file" id="fileOpen" accept=".json,application/json" hidden>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+
+    <!-- ═════ TUILES ═════ -->
+    <details class="section" open data-id="tiles">
+      <summary><span>Tuiles</span><small id="tilesCount"></small></summary>
+      <div class="section-body">
+        <div class="tile-grid" id="tileGrid"></div>
+
+        <div class="editor" id="editor">
+          <div class="editor-head">
+            <input type="text" id="tileName" maxlength="40" spellcheck="false" aria-label="Nom de la tuile">
+            <label class="switch" title="Utiliser cette tuile dans la grille">
+              <input type="checkbox" id="tileOn"><span></span></label>
+          </div>
+          <canvas id="editorCanvas" aria-label="Éditeur de tuile : cliquez deux points pour les relier"></canvas>
+          <p class="hint" id="editorHint">Cliquez deux points pour les relier, ou glissez de l'un à l'autre. Cliquez deux fois sur un point pour le libérer.</p>
+          <div class="btn-row">
+            <button class="btn sm" id="tileRandom" title="Forme aléatoire">Aléatoire</button>
+            <button class="btn sm" id="tileRotate" title="Pivoter de 60°">Pivoter ⟳</button>
+            <button class="btn sm" id="tileClear">Vider</button>
+            <button class="btn sm" id="tileDup">Dupliquer</button>
+            <button class="btn sm danger" id="tileDel">Supprimer</button>
+          </div>
+          <div class="field">
+            <label for="tileWeight">Fréquence</label>
+            <input type="range" id="tileWeight" min="1" max="10" step="1">
+            <output id="tileWeightVal"></output>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn sm" id="tileAddBase" title="Ajoute une tuile pour chaque forme possible qui manque encore">+ Formes de base</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- ═════ STYLE ═════ -->
+    <details class="section" open data-id="style">
+      <summary><span>Style</span></summary>
+      <div class="section-body">
+        <div class="target">
+          <label for="styleTarget">Réglages de</label>
+          <select id="styleTarget"></select>
+          <button class="btn sm ghost" id="styleReset" hidden title="Cette tuile suivra de nouveau les réglages communs">Suivre le commun</button>
+        </div>
+        <p class="hint" id="targetHint" hidden>Les réglages modifiés ici ne concernent que cette tuile ; ils sont marqués d'un point. Cliquez sur le point pour revenir au réglage commun.</p>
+
+        <h3>Couleurs <button class="override-dot" data-key="palette" hidden title="Revenir aux couleurs communes"></button></h3>
+        <div class="palette" id="palette"></div>
+        <div class="btn-row">
+          <button class="btn sm" id="palShuffle" title="Mélanger l'ordre des couleurs">Mélanger</button>
+          <button class="btn sm" id="palSave">Enregistrer…</button>
+          <button class="btn sm" id="palImportBtn">Importer…</button>
+        </div>
+        <div class="inline-form" id="palSaveForm" hidden>
+          <input type="text" id="palSaveName" placeholder="nom de la palette" maxlength="40">
+          <button class="btn sm primary" id="palSaveOk">OK</button>
+        </div>
+        <div class="inline-form col" id="palImportForm" hidden>
+          <textarea id="palImportText" rows="4" spellcheck="false" placeholder='{"colors": ["#572d05", "#a55409", "#ed790c"]} — ou simplement des codes #hex'></textarea>
+          <div class="btn-row"><button class="btn sm primary" id="palImportOk">Importer</button><span class="msg" id="palImportMsg"></span></div>
+        </div>
+        <div class="presets" id="presets"></div>
+
+        <h3>Bandes</h3>
+        <div id="styleBands"></div>
+        <h3>Contour &amp; ombre</h3>
+        <div id="styleShade"></div>
+        <h3>Motif animé</h3>
+        <div id="styleFx"></div>
+      </div>
+    </details>
+
+    <!-- ═════ GRILLE ═════ -->
+    <details class="section" open data-id="grid">
+      <summary><span>Grille &amp; cadre</span><small id="gridInfo"></small></summary>
+      <div class="section-body" id="gridControls"></div>
+    </details>
+
+    <footer class="credits">
+      Inspiré des pavages de Sébastien Truchet (1704). Tout est enregistré dans votre navigateur.
+    </footer>
+  </aside>
+
+  <main class="stage" id="stage">
+    <div class="frame" id="frame">
+      <canvas id="view"></canvas>
+      <canvas id="overlay"></canvas>
+    </div>
+    <div class="stage-bar">
+      <span id="frameInfo"></span>
+      <span class="keys"><kbd>clic</kbd> pivoter la case · <kbd>⇧ clic</kbd> autre tuile · <kbd>Ctrl clic</kbd> éditer sa tuile · <kbd>Alt clic</kbd> rétablir</span>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/core.js"></script>
+<script src="js/render.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
