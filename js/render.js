@@ -236,6 +236,7 @@ TH.buildStrokes = function buildStrokes(geo, styleFor, opts = {}) {
       if (sub.length < 2) continue;
       const rnd0 = Math.floor(TH.mulberry32(c.hash)() * pal.length);
       const ribbon = S.colorMode === 'ribbon' ? curveColors(geo, pal.length)[ci0] : 0;
+      const band = [];
       for (let j = 0; j < P.B; j++) {
         const d = P.offs[j];
         const pts = d === 0 ? sub : sub.map((p, i) => [p[0] + subN[i][0] * d, p[1] + subN[i][1] * d]);
@@ -248,21 +249,35 @@ TH.buildStrokes = function buildStrokes(geo, styleFor, opts = {}) {
         if (opts.fxRandom) fx = FX[Math.floor(TH.rng(c.hash, j, 'fx')() * FX.length)];
         let k = 0;
         for (const p of pts) k += p[0] * P.dir[0] + p[1] * P.dir[1];
-        out.push({
-          pts, closed: whole && c.closed, S, P, fx,
+        band.push({
+          pts, closed: whole && c.closed, S, P, fx, h: 0,
           color: pal[ci % pal.length],
           w: P.lw * profileAt(S.profile, j, P.B),
           sign: c.hash & 1 ? 1 : -1,
           key: k / pts.length + j * 1e-6,
         });
       }
+      /* hauteur (axe Z) progressive d'un bord du ruban à l'autre : la bande j est
+         à j/(B-1) × relief. Chaque bande, un cran plus haut que sa voisine, porte
+         son ombre sur elle (réglage « Relief des bandes ») */
+      band.forEach((st, j) => (st.h = band.length > 1 ? j / (band.length - 1) : 0));
+      out.push(...band);
     }
   });
-  /* on peint d'abord ce qui est loin dans le sens de la lumière : chaque ruban
-     projette son ombre sur ceux d'en dessous, de façon cohérente */
-  out.sort((a, b) => b.key - a.key);
+  /* ordre de peinture : du plus bas au plus haut (axe Z), puis, à hauteur égale,
+     ce qui est loin dans le sens de la lumière d'abord : chaque ruban projette son
+     ombre sur ceux d'en dessous, de façon cohérente */
+  out.forEach((st) => (st.z = (st.S.relief || 0) * st.h));
+  out.sort((a, b) => a.z - b.z || b.key - a.key);
   return out;
 };
+
+/* ombre d'un trait, en unités : décalage et flou grandissent avec sa hauteur */
+function shadowOf(s) {
+  const S = s.S, P = s.P, z = s.z || 0;          // hauteur en largeurs de bande
+  const dist = P.lw * (S.shadowDist + z);
+  return { dx: dist * P.dir[0], dy: dist * P.dir[1], blur: P.lw * (S.shadowBlur + 0.3 * z) };
+}
 
 /* ── peinture canvas ───────────────────────────────────────────────── */
 function pathOf(s) {
@@ -312,9 +327,10 @@ TH.paint = function paint(ctx, scene, view, opts) {
     if (S.shadow) {
       /* l'ombre canvas ne suit pas la transformation : on la passe en pixels */
       ctx.shadowColor = `rgba(0,0,0,${S.shadowOpacity})`;
-      ctx.shadowOffsetX = P.lw * S.shadowDist * P.dir[0] * R;
-      ctx.shadowOffsetY = P.lw * S.shadowDist * P.dir[1] * R;
-      ctx.shadowBlur = P.lw * S.shadowBlur * R;
+      const so = shadowOf(s);
+      ctx.shadowOffsetX = so.dx * R;
+      ctx.shadowOffsetY = so.dy * R;
+      ctx.shadowBlur = so.blur * R;
     }
     if (S.outline > 0) {
       ctx.lineWidth = w + 2 * S.outline * P.lw;
@@ -360,9 +376,9 @@ TH.toSVG = function toSVG(scene, view, opts) {
   const fy0 = f(-ff / R - 2);
   const fbx = f(-e / R - 2), fw = f(view.W / R + 4), fh = f(view.H / R + 4);
   const filters = new Map();
-  const filterId = (S, P) => {
-    const dx = f(P.lw * S.shadowDist * P.dir[0]), dy = f(P.lw * S.shadowDist * P.dir[1]);
-    const sd = f((P.lw * S.shadowBlur) / 2), op = S.shadowOpacity;
+  const filterId = (s) => {
+    const S = s.S, so = shadowOf(s);
+    const dx = f(so.dx), dy = f(so.dy), sd = f(so.blur / 2), op = S.shadowOpacity;
     const k = [dx, dy, sd, op].join('_');
     if (!filters.has(k)) {
       filters.set(k, `<filter id="sh${filters.size}" filterUnits="userSpaceOnUse" x="${fbx}" y="${fy0}" width="${fw}" height="${fh}">` +
@@ -377,7 +393,7 @@ TH.toSVG = function toSVG(scene, view, opts) {
   const body = [];
   for (const s of scene.strokes) {
     const S = s.S, P = s.P, w = f(Math.max(s.w, 0.6 / R)), dd = dOf(s);
-    const sh = S.shadow ? ` filter="url(#${filterId(S, P)})"` : '';
+    const sh = S.shadow ? ` filter="url(#${filterId(s)})"` : '';
     const g = [];
     if (S.outline > 0) g.push(`<path d="${dd}" stroke="${S.outlineColor}" stroke-width="${f(w + 2 * S.outline * P.lw)}"${sh}/>`);
     g.push(`<path d="${dd}" stroke="${s.color}" stroke-width="${w}"${S.outline > 0 ? '' : sh}/>`);
