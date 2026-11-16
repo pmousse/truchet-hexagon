@@ -604,7 +604,7 @@ function buildControl(d, bind) {
     input.oninput = () => bind.set(d.k, input.value);
     row.append(input, out);
   } else if (d.type === 'segmented') {
-    input = el('div', 'segmented');
+    input = el('div', 'seg');
     input.setAttribute('role', 'radiogroup');
     for (const [v, t] of d.options) {
       const b = el('button', null, t); b.type = 'button'; b.dataset.v = v;
@@ -660,6 +660,10 @@ const settingsBind = {
   all: () => P.settings,
   set: (k, v) => {
     P.settings[k] = v;
+    if (k === 'bg' && P.settings.transparent) {
+      P.settings.transparent = false;           // choisir une couleur, c'est vouloir la voir
+      toast('Fond transparent désactivé');
+    }
     if (k === 'format' || k === 'res' || k === 'customW' || k === 'customH') {
       P.settings.density = Math.min(P.settings.density, TH.densityMax(P.settings));
     }
@@ -676,6 +680,15 @@ for (const d of STYLE_DEFS) if (d.panel) $(d.panel).appendChild(buildControl(d, 
 for (const d of SETTING_DEFS) if (d.panel) $(d.panel).appendChild(buildControl(d, settingsBind).row);
 const styleControls = controls.filter((c) => STYLE_DEFS.includes(c.d));
 const settingControls = controls.filter((c) => SETTING_DEFS.includes(c.d));
+
+/* fond transparent (réglé dans Exporter) : le dire là où l'on choisit le fond */
+const bgNote = el('div', 'bg-note');
+bgNote.append(el('span', null, 'Fond transparent : la couleur n’est pas utilisée. '));
+const bgNoteBtn = el('button', 'link', 'Remettre le fond');
+bgNoteBtn.type = 'button';
+bgNoteBtn.onclick = () => settingsBind.set('transparent', false);
+bgNote.appendChild(bgNoteBtn);
+$('c_bg').closest('.field').after(bgNote);
 
 function syncSettings() {
   settingControls.forEach((c) => c.sync());
@@ -985,6 +998,8 @@ function syncFrameUI() {
   frameSyncs.forEach((f) => f());
   marginCtl.sync();
   transpCtl.sync();
+  bgNote.hidden = !P.settings.transparent;
+  $('c_bg').closest('.field').classList.toggle('dim', P.settings.transparent);
   const custom = P.settings.format === 'custom';
   $('customSize').hidden = !custom;
   $('resRow').hidden = custom;
