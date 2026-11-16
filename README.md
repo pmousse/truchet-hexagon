@@ -8,7 +8,8 @@ Un petit atelier, dans le navigateur, pour composer des images à partir de **tu
 
 - **Dessiner ses tuiles** : cliquer deux points pour les relier (petit arc, grand arc ou droite selon l'écart entre les arêtes), activer ou non chaque tuile, régler sa fréquence. « Formes de base » ajoute d'un coup toutes les formes possibles.
 - **Styler les rubans** : nombre de bandes, épaisseur, écart, profil, opacité, contour, ombre portée, motif rayé ou pointillé (animable).
-- **Style par tuile** : choisir « Réglages de : Tuile … » pour qu'une tuile ait ses propres couleurs ou bandes ; les autres réglages restent communs.
+- **Sélection de tuiles** : clic pour en choisir une, <kbd>Ctrl</kbd> clic pour en ajouter ou retirer, <kbd>Maj</kbd> clic pour une plage. Activer, fréquence, dupliquer et supprimer s'appliquent à toute la sélection.
+- **Style par tuile** : dans Style, « Appliquer à : Sélection » donne aux tuiles sélectionnées leurs propres couleurs ou bandes ; les autres réglages restent communs.
 - **Couleurs** : palettes prêtes à l'emploi, palettes enregistrées, import d'un JSON (`{"colors": ["#…", …]}`) ou d'une simple liste de codes hex.
 - **Cadre** : formats réseaux sociaux / écran / impression ou taille libre, définition jusqu'à 8K, densité, bord à bord ou hexagones entiers, marge, fond.
 - **Retoucher la grille** : clic sur une case pour la pivoter, ⇧ clic pour changer de tuile, Ctrl clic pour éditer sa tuile, Alt clic (ou clic droit) pour la rétablir.

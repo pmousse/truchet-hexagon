@@ -58,6 +58,8 @@
       <summary><span>Tuiles</span><small id="tilesCount"></small></summary>
       <div class="section-body">
         <div class="tile-grid" id="tileGrid"></div>
+        <p class="hint"><kbd>Ctrl</kbd> clic ajoute ou retire une tuile de la sélection, <kbd>Maj</kbd> clic sélectionne une plage.</p>
+        <p class="sel-info" id="selInfo" hidden></p>
 
         <div class="editor" id="editor">
           <div class="editor-head">
@@ -91,11 +93,14 @@
       <summary><span>Style</span></summary>
       <div class="section-body">
         <div class="target">
-          <label for="styleTarget">Réglages de</label>
-          <select id="styleTarget"></select>
-          <button class="btn sm ghost" id="styleReset" hidden title="Cette tuile suivra de nouveau les réglages communs">Suivre le commun</button>
+          <span class="target-lab">Appliquer à</span>
+          <div class="segmented" role="radiogroup">
+            <button type="button" id="styleAll">Toutes les tuiles</button>
+            <button type="button" id="styleSel" title="Les tuiles sélectionnées dans « Tuiles » (Ctrl clic, Maj clic)"></button>
+          </div>
+          <button class="btn sm ghost" id="styleReset" hidden title="Les tuiles sélectionnées suivront de nouveau les réglages communs">Suivre le commun</button>
         </div>
-        <p class="hint" id="targetHint" hidden>Les réglages modifiés ici ne concernent que cette tuile ; ils sont marqués d'un point. Cliquez sur le point pour revenir au réglage commun.</p>
+        <p class="hint" id="targetHint" hidden>Les réglages modifiés ici ne concernent que les tuiles sélectionnées ; ils sont marqués d'un point. Cliquez sur le point pour revenir au réglage commun.</p>
 
         <h3>Couleurs <button class="override-dot" data-key="palette" hidden title="Revenir aux couleurs communes"></button></h3>
         <div class="palette" id="palette"></div>

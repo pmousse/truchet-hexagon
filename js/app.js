@@ -149,13 +149,23 @@ let P = normProject(lsGet(LS_PROJECT));
 let LIB = (lsGet(LS_PALETTES) || []).map((p) => ({ name: String(p && p.name || 'palette').slice(0, 40), colors: TH.normPalette(p && p.colors) }))
   .filter((p) => p.colors.length);
 const ui = {
-  selected: P.tiles[0].id, target: 'global', picked: null, drag: false, pointer: null, hoverHandle: null,
+  selected: P.tiles[0].id, multi: new Set([P.tiles[0].id]), anchor: P.tiles[0].id, target: 'global', picked: null, drag: false, pointer: null, hoverHandle: null,
   hoverCell: null, phase: 0, raf: 0, L: null, view: null, k: 1,
 };
 
 const tileById = (id) => P.tiles.find((t) => t.id === id) || null;
 const selTile = () => tileById(ui.selected) || P.tiles[0];
-const targetTile = () => (ui.target === 'global' ? null : tileById(ui.target));
+/* tuiles sélectionnées (la principale est celle que montre l'éditeur) */
+const selTiles = () => P.tiles.filter((t) => ui.multi.has(t.id));
+/* tuiles dont on règle le style : aucune = réglages communs */
+const targetTiles = () => (ui.target === 'sel' ? selTiles() : []);
+const targetTile = () => (ui.target === 'sel' ? selTile() : null);
+function fixSel() {
+  for (const id of [...ui.multi]) if (!tileById(id)) ui.multi.delete(id);
+  if (!tileById(ui.selected)) ui.selected = (selTiles()[0] || P.tiles[0]).id;
+  ui.multi.add(ui.selected);
+  if (!tileById(ui.anchor)) ui.anchor = ui.selected;
+}
 const effStyle = (tile) => Object.assign({}, P.style, tile ? tile.style : null);
 const nextTileId = () => P.tiles.reduce((m, t) => Math.max(m, t.id), 0) + 1;
 
@@ -319,14 +329,14 @@ function renderTileGrid() {
   const box = $('tileGrid');
   box.textContent = '';
   for (const t of P.tiles) {
-    const card = el('button', 'tile-card' + (t.id === ui.selected ? ' sel' : '') + (t.on ? '' : ' off'));
+    const card = el('button', 'tile-card' + (ui.multi.has(t.id) ? ' sel' : '') + (t.id === ui.selected && ui.multi.size > 1 ? ' primary' : '') + (t.on ? '' : ' off'));
     card.type = 'button';
     card.title = t.name + (t.on ? '' : ' (hors jeu)') + (Object.keys(t.style).length ? ' · style propre' : '');
     const c = el('canvas');
     card.appendChild(c);
     card.appendChild(el('span', 'tile-name', t.name));
     if (Object.keys(t.style).length) card.appendChild(el('i', 'own-mark'));
-    card.onclick = () => selectTile(t.id);
+    card.onclick = (e) => selectTile(t.id, e.shiftKey ? 'range' : e.ctrlKey || e.metaKey ? 'toggle' : 'single', e.ctrlKey || e.metaKey);
     box.appendChild(card);
     paintTile(c, t, 62, 62, 0.47);
   }
@@ -440,14 +450,34 @@ function syncEditorFields() {
   $('tileOn').checked = t.on;
   $('tileWeight').value = t.weight;
   $('tileWeightVal').textContent = '× ' + t.weight;
-  $('tileDel').disabled = P.tiles.length <= 1;
+  $('tileDel').disabled = P.tiles.length <= ui.multi.size;
+  const n = ui.multi.size;
+  $('selInfo').hidden = n < 2;
+  $('selInfo').textContent = `${n} tuiles sélectionnées. L'interrupteur, la fréquence, Dupliquer et Supprimer s'appliquent à toutes ; la forme dessinée ici est celle de « ${t.name} ».`;
+  $('styleSel').textContent = n > 1 ? `Sélection (${n})` : `« ${t.name} »`;
 }
 
 /* ═════ actions sur les tuiles ════════════════════════════════════════ */
-function selectTile(id) {
+/* mode : 'single' (clic), 'toggle' (Ctrl clic), 'range' (Maj clic, ajouté à la sélection avec Ctrl) */
+function selectTile(id, mode = 'single', keep = false) {
+  if (mode === 'toggle') {
+    if (ui.multi.has(id) && ui.multi.size > 1) {
+      ui.multi.delete(id);
+      ui.anchor = id;
+      id = ui.selected === id ? selTiles().pop().id : ui.selected;
+    } else { ui.multi.add(id); ui.anchor = id; }
+  } else if (mode === 'range') {
+    const ids = P.tiles.map((t) => t.id);
+    let a = ids.indexOf(ui.anchor), b = ids.indexOf(id);
+    if (a < 0) a = b;
+    if (!keep) ui.multi.clear();
+    ids.slice(Math.min(a, b), Math.max(a, b) + 1).forEach((x) => ui.multi.add(x));
+  } else {
+    ui.multi = new Set([id]);
+    ui.anchor = id;
+  }
   ui.selected = id;
   ui.picked = null;
-  if (ui.target !== 'global') ui.target = id;
   refreshTiles();
   syncStyle();
 }
@@ -464,10 +494,10 @@ function tilesChanged() {
   requestRender();
 }
 function refreshTiles() {
+  fixSel();
   renderTileGrid();
   renderEditor();
   syncEditorFields();
-  renderTargetSelect();
   updateInfo();
 }
 
@@ -475,10 +505,10 @@ $('tileName').addEventListener('input', (e) => {
   selTile().name = e.target.value.slice(0, 40) || 'Sans nom';
   save();
   renderTileGrid();
-  renderTargetSelect();
+  syncEditorFields();
 });
-$('tileOn').addEventListener('change', (e) => { selTile().on = e.target.checked; tilesChanged(); });
-$('tileWeight').addEventListener('input', (e) => { selTile().weight = +e.target.value; tilesChanged(); });
+$('tileOn').addEventListener('change', (e) => { selTiles().forEach((t) => (t.on = e.target.checked)); tilesChanged(); });
+$('tileWeight').addEventListener('input', (e) => { selTiles().forEach((t) => (t.weight = +e.target.value)); tilesChanged(); });
 $('tileRandom').onclick = () => {
   const t = selTile(), was = TH.connSig(t.conns);
   do t.conns = TH.randomMatching(Math.random, true); while (TH.connSig(t.conns) === was);
@@ -487,19 +517,29 @@ $('tileRandom').onclick = () => {
 $('tileRotate').onclick = () => { const t = selTile(); t.conns = TH.rotateConns(t.conns, 1); tilesChanged(); };
 $('tileClear').onclick = () => { selTile().conns = []; tilesChanged(); };
 $('tileDup').onclick = () => {
-  const t = selTile();
-  addTile({ name: (t.name + ' (copie)').slice(0, 40), conns: t.conns, on: t.on, weight: t.weight, style: t.style });
+  const copies = selTiles().filter(() => P.tiles.length < 60).map((t) => {
+    const c = normTile({ name: (t.name + ' (copie)').slice(0, 40), conns: t.conns, on: t.on, weight: t.weight, style: t.style }, nextTileId());
+    P.tiles.push(c);
+    return c.id;
+  });
+  if (!copies.length) return;
+  ui.multi = new Set(copies);
+  ui.selected = ui.anchor = copies[copies.length - 1];
+  tilesChanged();
+  syncStyle();
 };
 $('tileDel').onclick = () => {
-  if (P.tiles.length <= 1) return;
-  const i = P.tiles.indexOf(selTile());
-  const [gone] = P.tiles.splice(i, 1);
-  if (ui.target === gone.id) ui.target = 'global';
-  ui.selected = P.tiles[Math.max(0, i - 1)].id;
+  const gone = selTiles();
+  if (P.tiles.length <= gone.length) return;
+  const i = P.tiles.indexOf(gone[0]);
+  P.tiles = P.tiles.filter((t) => !ui.multi.has(t.id));
+  ui.selected = P.tiles[Math.max(0, Math.min(i, P.tiles.length) - 1)].id;
+  ui.multi = new Set([ui.selected]);
+  ui.anchor = ui.selected;
   P.edits = {};
   tilesChanged();
   syncStyle();
-  toast(`« ${gone.name} » supprimée`);
+  toast(gone.length > 1 ? `${gone.length} tuiles supprimées` : `« ${gone[0].name} » supprimée`);
 };
 $('tileAddBase').onclick = () => {
   const have = new Set(P.tiles.map((t) => TH.canonical(t.conns)));
@@ -595,12 +635,13 @@ function buildControl(d, bind) {
 const styleBind = {
   all: () => effStyle(targetTile()),
   set: (k, v) => setStyleVal(k, v),
-  overridden: (k) => { const t = targetTile(); return !!(t && k in t.style); },
-  reset: (k) => { const t = targetTile(); if (t) { delete t.style[k]; styleChanged(); } },
+  overridden: (k) => targetTiles().some((t) => k in t.style),
+  reset: (k) => { const ts = targetTiles(); if (ts.length) { ts.forEach((t) => delete t.style[k]); styleChanged(); } },
 };
 function setStyleVal(k, v) {
-  const t = targetTile();
-  if (t) t.style[k] = v; else P.style[k] = v;
+  const ts = targetTiles();
+  if (ts.length) ts.forEach((t) => (t.style[k] = Array.isArray(v) ? v.slice() : v));
+  else P.style[k] = v;
   styleChanged();
 }
 function styleChanged() {
@@ -608,6 +649,7 @@ function styleChanged() {
   syncStyle();
   renderTileGrid();
   renderEditor();
+  syncEditorFields();
   requestRender();
 }
 
@@ -637,36 +679,21 @@ function syncStyle() {
   styleControls.forEach((c) => c.sync());
   renderPalette();
   renderPresets();
-  const t = targetTile();
-  $('styleReset').hidden = !(t && Object.keys(t.style).length);
-  $('targetHint').hidden = !t;
-  const dot = document.querySelector('h3 .override-dot[data-key="palette"]');
-  dot.hidden = !(t && t.style.palette);
-  $('styleTarget').value = String(ui.target);
+  const ts = targetTiles();
+  $('styleReset').hidden = !ts.some((t) => Object.keys(t.style).length);
+  $('targetHint').hidden = !ts.length;
+  document.querySelector('h3 .override-dot[data-key="palette"]').hidden = !ts.some((t) => t.style.palette);
+  $('styleAll').setAttribute('aria-pressed', String(ui.target !== 'sel'));
+  $('styleSel').setAttribute('aria-pressed', String(ui.target === 'sel'));
 }
 
-function renderTargetSelect() {
-  const s = $('styleTarget');
-  s.textContent = '';
-  const g = el('option', null, 'Toutes les tuiles');
-  g.value = 'global';
-  s.appendChild(g);
-  for (const t of P.tiles) {
-    const o = el('option', null, 'Tuile « ' + t.name + ' »' + (Object.keys(t.style).length ? ' ●' : ''));
-    o.value = t.id;
-    s.appendChild(o);
-  }
-  s.value = String(ui.target);
-}
-$('styleTarget').onchange = (e) => {
-  const v = e.target.value;
-  ui.target = v === 'global' ? 'global' : +v;
-  if (ui.target !== 'global' && ui.target !== ui.selected) { ui.selected = ui.target; refreshTiles(); }
-  syncStyle();
-};
+$('styleAll').onclick = () => { ui.target = 'global'; syncStyle(); };
+$('styleSel').onclick = () => { ui.target = 'sel'; syncStyle(); };
 $('styleReset').onclick = () => {
-  const t = targetTile();
-  if (t) { t.style = {}; styleChanged(); renderTargetSelect(); toast(`« ${t.name} » suit de nouveau les réglages communs`); }
+  const ts = targetTiles();
+  ts.forEach((t) => (t.style = {}));
+  styleChanged();
+  toast(ts.length > 1 ? `${ts.length} tuiles suivent de nouveau les réglages communs` : `« ${ts[0].name} » suit de nouveau les réglages communs`);
 };
 document.querySelector('h3 .override-dot[data-key="palette"]').onclick = () => styleBind.reset('palette');
 
@@ -946,6 +973,8 @@ async function readLink(hash) {
 function loadProject(raw, msg) {
   P = normProject(raw);
   ui.selected = P.tiles[0].id;
+  ui.multi = new Set([ui.selected]);
+  ui.anchor = ui.selected;
   ui.target = 'global';
   ui.picked = null;
   save();
@@ -1044,7 +1073,7 @@ TH.app = { get project() { return P; }, shareLink, readLink, svg: () => { const 
   if (location.hash.startsWith('#p=')) {
     try {
       const raw = await readLink(location.hash);
-      if (raw) { P = normProject(raw); ui.selected = P.tiles[0].id; save(); toast('Projet chargé depuis le lien'); }
+      if (raw) { P = normProject(raw); ui.selected = ui.anchor = P.tiles[0].id; ui.multi = new Set([ui.selected]); save(); toast('Projet chargé depuis le lien'); }
     } catch (e) { toast('Lien de partage illisible'); }
     history.replaceState(null, '', location.pathname + location.search);
   }
