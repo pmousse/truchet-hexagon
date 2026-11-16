@@ -234,14 +234,16 @@ TH.buildStrokes = function buildStrokes(geo, styleFor, opts = {}) {
       const sub = whole ? c.pts : c.pts.slice(rn.i0, rn.i1 + 1);
       const subN = whole ? N : N.slice(rn.i0, rn.i1 + 1);
       if (sub.length < 2) continue;
-      const off0 = curveColors(geo, pal.length)[ci0];
+      const rnd0 = Math.floor(TH.mulberry32(c.hash)() * pal.length);
+      const ribbon = S.colorMode === 'ribbon' ? curveColors(geo, pal.length)[ci0] : 0;
       for (let j = 0; j < P.B; j++) {
         const d = P.offs[j];
         const pts = d === 0 ? sub : sub.map((p, i) => [p[0] + subN[i][0] * d, p[1] + subN[i][1] * d]);
-        /* curve : tout le ruban d'une couleur · curveBands : les bandes d'un ruban
-           parcourent la palette à partir de la couleur de la courbe · band : la
-           couleur ne dépend que du rang de la bande */
-        const ci = S.colorMode === 'band' ? j : S.colorMode === 'curveBands' ? off0 + j : off0;
+        /* band   : la bande j prend la couleur j de la palette, partout (ordre strict)
+           curve  : chaque courbe tire au sort sa couleur de départ, ses bandes
+                    suivent la palette à partir de là (comme la première version)
+           ribbon : tout le ruban d'une couleur, différente de ses voisines */
+        const ci = S.colorMode === 'band' ? j : S.colorMode === 'ribbon' ? ribbon : rnd0 + j;
         let fx = S.fx;
         if (opts.fxRandom) fx = FX[Math.floor(TH.rng(c.hash, j, 'fx')() * FX.length)];
         let k = 0;
