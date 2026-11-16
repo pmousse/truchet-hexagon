@@ -36,7 +36,7 @@ const STYLE_DEFS = [
   { k: 'profile', panel: 'styleBands', label: 'Profil', type: 'select', def: 'uni', show: (S) => S.bands > 1,
     options: [['uni', 'Bandes égales'], ['centre', 'Centre plus épais'], ['bords', 'Bords plus épais']] },
   { k: 'colorMode', panel: 'styleBands', label: 'Répartition des couleurs', type: 'select', def: 'curve',
-    options: [['curve', 'Une couleur par courbe'], ['band', 'Une couleur par rang de bande']] },
+    options: [['curve', 'Une couleur par courbe'], ['curveBands', 'Par courbe, bandes alternées'], ['band', 'Une couleur par rang de bande']] },
   { k: 'alpha', panel: 'styleBands', label: 'Opacité', type: 'range', min: 0.15, max: 1, step: 0.05, def: 1, fmt: pct },
   { k: 'outline', panel: 'styleShade', label: 'Contour', type: 'range', min: 0, max: 0.6, step: 0.02, def: 0, fmt: (v) => (v ? pct(v) : 'aucun') },
   { k: 'outlineColor', panel: 'styleShade', label: 'Couleur du contour', type: 'color', def: '#1d1d1f', show: (S) => S.outline > 0 },

@@ -138,8 +138,9 @@ TH.buildGeometry = function buildGeometry(cells) {
       if (!p || p[0] === start || visited[p[0]]) break;
       cur = p[0]; from = p[1];
     }
-    const pts = [], runs = [];
+    const pts = [], runs = [], cellsOf = new Set();
     for (const [si, fe] of seq) {
+      cellsOf.add(segs[si].cell.q + ',' + segs[si].cell.r);
       const s = segs[si];
       const local = TH.connPoints(s.a, s.b, fe === 0 ? s.a : s.b);
       const i0 = pts.length ? pts.length - 1 : 0;
@@ -151,10 +152,33 @@ TH.buildGeometry = function buildGeometry(cells) {
     }
     if (closed) pts[pts.length - 1] = pts[0];
     const f = segs[start];
-    curves.push({ pts, closed, runs, hash: TH.hash32([f.cell.q, f.cell.r, f.a, f.b, closed ? 1 : 2]) });
+    curves.push({ pts, closed, runs, cells: cellsOf, hash: TH.hash32([f.cell.q, f.cell.r, f.a, f.b, closed ? 1 : 2]) });
   }
   return { curves };
 };
+
+/* couleur de chaque courbe pour une palette de n couleurs : tirée au sort, mais
+   en évitant celles des courbes qui traversent les mêmes cases (sinon deux
+   rubans voisins de même couleur se fondent en une seule tache) */
+function curveColors(geo, n) {
+  geo.colorMemo = geo.colorMemo || new Map();
+  if (geo.colorMemo.has(n)) return geo.colorMemo.get(n);
+  const C = geo.curves, out = new Int32Array(C.length).fill(-1);
+  const byCell = new Map();
+  C.forEach((c, i) => c.cells.forEach((k) => { if (!byCell.has(k)) byCell.set(k, []); byCell.get(k).push(i); }));
+  /* les longues courbes d'abord : ce sont elles qui ont le plus de voisines */
+  const order = C.map((_, i) => i).sort((a, b) => C[b].pts.length - C[a].pts.length || C[a].hash - C[b].hash);
+  for (const i of order) {
+    const used = new Set();
+    for (const k of C[i].cells) for (const j of byCell.get(k)) if (out[j] >= 0) used.add(out[j]);
+    let cand = [];
+    for (let v = 0; v < n; v++) if (!used.has(v)) cand.push(v);
+    if (!cand.length) cand = [...Array(n).keys()];
+    out[i] = cand[Math.floor(TH.mulberry32(C[i].hash)() * cand.length)];
+  }
+  geo.colorMemo.set(n, out);
+  return out;
+}
 
 /* ── bandes ────────────────────────────────────────────────────────── */
 TH.bandParams = function bandParams(S) {
@@ -194,8 +218,8 @@ const FX = ['none', 'rayures', 'pointilles'];
 /* geo + styleFor(tid) → liste ordonnée de traits à peindre */
 TH.buildStrokes = function buildStrokes(geo, styleFor, opts = {}) {
   const out = [];
-  for (const c of geo.curves) {
-    if (c.pts.length < 2) continue;
+  geo.curves.forEach((c, ci0) => {
+    if (c.pts.length < 2) return;
     const N = normals(c.pts, c.closed);
     /* deux tronçons voisins de même style ne font qu'un chemin */
     const runs = [];
@@ -205,17 +229,19 @@ TH.buildStrokes = function buildStrokes(geo, styleFor, opts = {}) {
       else runs.push({ i0: rn.i0, i1: rn.i1, S });
     }
     const whole = runs.length === 1;
-    const palOff = TH.mulberry32(c.hash)();
     for (const rn of runs) {
       const S = rn.S, P = TH.bandParams(S), pal = S.palette.length ? S.palette : ['#888888'];
       const sub = whole ? c.pts : c.pts.slice(rn.i0, rn.i1 + 1);
       const subN = whole ? N : N.slice(rn.i0, rn.i1 + 1);
       if (sub.length < 2) continue;
-      const off0 = Math.floor(palOff * pal.length);
+      const off0 = curveColors(geo, pal.length)[ci0];
       for (let j = 0; j < P.B; j++) {
         const d = P.offs[j];
         const pts = d === 0 ? sub : sub.map((p, i) => [p[0] + subN[i][0] * d, p[1] + subN[i][1] * d]);
-        const ci = S.colorMode === 'band' ? j : off0 + j;
+        /* curve : tout le ruban d'une couleur · curveBands : les bandes d'un ruban
+           parcourent la palette à partir de la couleur de la courbe · band : la
+           couleur ne dépend que du rang de la bande */
+        const ci = S.colorMode === 'band' ? j : S.colorMode === 'curveBands' ? off0 + j : off0;
         let fx = S.fx;
         if (opts.fxRandom) fx = FX[Math.floor(TH.rng(c.hash, j, 'fx')() * FX.length)];
         let k = 0;
@@ -229,7 +255,7 @@ TH.buildStrokes = function buildStrokes(geo, styleFor, opts = {}) {
         });
       }
     }
-  }
+  });
   /* on peint d'abord ce qui est loin dans le sens de la lumière : chaque ruban
      projette son ombre sur ceux d'en dessous, de façon cohérente */
   out.sort((a, b) => b.key - a.key);
