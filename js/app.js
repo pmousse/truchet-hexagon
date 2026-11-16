@@ -986,9 +986,7 @@ function loadProject(raw, msg) {
 async function menuAction(act) {
   if (act === 'png') exportPNG();
   else if (act === 'svg') exportSVG();
-  else if (act === 'save') {
-    download(new Blob([JSON.stringify(P, null, 1)], { type: 'application/json' }), `truchet-hex-projet-${P.settings.seed}.json`);
-  } else if (act === 'open') $('fileOpen').click();
+  else if (act === 'projects') openProjects();
   else if (act === 'share') {
     const url = await shareLink();
     try { await navigator.clipboard.writeText(url); toast('Lien copié dans le presse-papiers'); }
@@ -999,12 +997,126 @@ async function menuAction(act) {
     }
   }
 }
+/* ═════ projets enregistrés ═══════════════════════════════════════════
+   Un projet = un nom, une date, une vignette et l'état complet (tuiles, style,
+   cadre, retouches de cases). Ils restent dans le navigateur et peuvent être
+   écrits dans un fichier .json / relus depuis un fichier.                    */
+const LS_PROJECTS = 'truchet-hexagon.projects.v1';
+const FILE_TAG = 'truchet-hexagon';
+const dlg = $('projectsDlg');
+
+function cleanProjects(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter((p) => p && typeof p.name === 'string' && p.project && typeof p.project === 'object')
+    .map((p) => ({
+      name: p.name.trim().slice(0, 60) || 'Sans nom',
+      savedAt: isNaN(Date.parse(p.savedAt)) ? new Date().toISOString() : p.savedAt,
+      thumb: typeof p.thumb === 'string' && p.thumb.startsWith('data:image/') ? p.thumb : '',
+      project: normProject(p.project),
+    }));
+}
+let PROJECTS = cleanProjects(lsGet(LS_PROJECTS));
+function persistProjects() {
+  try { localStorage.setItem(LS_PROJECTS, JSON.stringify(PROJECTS)); return true; }
+  catch (e) { toast('Impossible d’enregistrer dans ce navigateur : utilisez « Exporter le fichier »'); return false; }
+}
+const sameName = (a, b) => a.toLowerCase() === b.toLowerCase();
+function upsertProject(p) {
+  PROJECTS = [p].concat(PROJECTS.filter((q) => !sameName(q.name, p.name)));
+}
+
+function thumbOf() {
+  const max = 112, k = max / Math.max(cv.width, cv.height);
+  const c = el('canvas');
+  c.width = Math.max(1, Math.round(cv.width * k));
+  c.height = Math.max(1, Math.round(cv.height * k));
+  const x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(cv, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.85);
+}
+
+function renderProjects() {
+  const list = $('projList');
+  list.textContent = '';
+  $('projExport').disabled = !PROJECTS.length;
+  if (!PROJECTS.length) {
+    list.appendChild(el('li', 'empty', 'Aucun projet enregistré. Donnez un nom à l’image en cours et enregistrez-la.'));
+    return;
+  }
+  for (const p of PROJECTS) {
+    const li = el('li');
+    const img = el('img');
+    img.alt = '';
+    if (p.thumb) img.src = p.thumb;
+    const meta = el('div', 'meta');
+    const L = TH.layout(p.project.settings);
+    const when = new Date(p.savedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    meta.append(el('strong', null, p.name), el('span', null, `${when} · ${L.W} × ${L.H} · ${p.project.tiles.length} tuiles`));
+    const open = el('button', 'btn sm', 'Ouvrir');
+    open.type = 'button';
+    open.onclick = () => {
+      loadProject(JSON.parse(JSON.stringify(p.project)), `« ${p.name} » ouvert`);
+      $('projName').value = p.name;
+      dlg.close();
+    };
+    const del = el('button', 'btn sm ghost danger', 'Supprimer');
+    del.type = 'button';
+    del.onclick = () => {
+      if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'Confirmer ?'; return; }
+      PROJECTS = PROJECTS.filter((q) => q !== p);
+      persistProjects();
+      renderProjects();
+    };
+    li.append(img, meta, open, del);
+    list.appendChild(li);
+  }
+}
+
+function saveProject() {
+  const name = ($('projName').value.trim() || `Projet ${P.settings.seed}`).slice(0, 60);
+  const exists = PROJECTS.some((q) => sameName(q.name, name));
+  upsertProject({ name, savedAt: new Date().toISOString(), thumb: thumbOf(), project: JSON.parse(JSON.stringify(P)) });
+  if (persistProjects()) toast(exists ? `« ${name} » mis à jour` : `« ${name} » enregistré`);
+  renderProjects();
+}
+
+function openProjects() {
+  renderProjects();
+  dlg.showModal();
+  $('projName').focus();
+}
+
+$('btnProjects').onclick = openProjects;
+$('projSave').onclick = saveProject;
+$('projName').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); saveProject(); } };
+$('projClose').onclick = () => dlg.close();
+dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+$('projExport').onclick = () => {
+  const txt = JSON.stringify({ app: FILE_TAG, version: 1, projects: PROJECTS }, null, 1);
+  download(new Blob([txt], { type: 'application/json' }), 'truchet-hexagon-projets.json');
+};
+$('projImport').onclick = () => $('fileOpen').click();
 $('fileOpen').onchange = async (e) => {
   const f = e.target.files[0];
   e.target.value = '';
   if (!f) return;
-  try { loadProject(JSON.parse(await f.text()), `Projet « ${f.name} » ouvert`); }
-  catch (err) { toast('Fichier illisible : ce n’est pas un projet .json valide'); }
+  try {
+    const data = JSON.parse(await f.text());
+    let incoming;
+    if (data && data.app === FILE_TAG) incoming = cleanProjects(data.projects);
+    else if (data && (data.tiles || data.settings)) {
+      /* un projet seul (ancien export) : on le range sous le nom du fichier */
+      incoming = cleanProjects([{ name: f.name.replace(/\.json$/i, ''), savedAt: new Date().toISOString(), project: data }]);
+    } else throw new Error();
+    if (!incoming.length) { toast('Ce fichier ne contient aucun projet'); return; }
+    incoming.reverse().forEach(upsertProject);
+    persistProjects();
+    renderProjects();
+    toast(`${incoming.length} projet${incoming.length > 1 ? 's' : ''} importé${incoming.length > 1 ? 's' : ''}`);
+  } catch (err) {
+    toast('Fichier illisible : ce n’est pas un fichier de projets Truchet hexagonal');
+  }
 };
 
 /* menus déroulants */
@@ -1025,8 +1137,10 @@ document.addEventListener('click', () => document.querySelectorAll('.menu.open')
 
 /* clavier */
 document.addEventListener('keydown', (e) => {
+  if (dlg.open) return;
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'range' && document.activeElement.type !== 'checkbox';
   if (e.key === 'Escape') {
+    if (dlg.open) return;
     document.querySelectorAll('.menu.open').forEach((x) => x.classList.remove('open'));
     if (ui.picked !== null) { ui.picked = null; renderEditor(); }
     return;
@@ -1039,7 +1153,9 @@ document.addEventListener('keydown', (e) => {
 /* toast */
 let toastTimer = 0;
 function toast(msg) {
-  const t = $('toast');
+  const t = $('toast'), d = $('projectsDlg');
+  const host = d.open ? d : document.body;        // une fenêtre modale passe au-dessus de tout
+  if (t.parentNode !== host) host.appendChild(t);
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toastTimer);

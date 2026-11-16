@@ -13,7 +13,8 @@ Un petit atelier, dans le navigateur, pour composer des images à partir de **tu
 - **Couleurs** : palettes prêtes à l'emploi, palettes enregistrées, import d'un JSON (`{"colors": ["#…", …]}`) ou d'une simple liste de codes hex.
 - **Cadre** : formats réseaux sociaux / écran / impression ou taille libre, définition jusqu'à 8K, densité, bord à bord ou hexagones entiers, marge, fond.
 - **Retoucher la grille** : clic sur une case pour la pivoter, ⇧ clic pour changer de tuile, Ctrl clic pour éditer sa tuile, Alt clic (ou clic droit) pour la rétablir.
-- **Exporter** en PNG pleine définition ou en **SVG** vectoriel ; enregistrer / ouvrir le projet en `.json` ; **copier un lien de partage** qui contient tout le projet.
+- **Projets** : enregistrer l'état complet sous un nom (tuiles, style, couleurs, cadre, cases retouchées), le rouvrir plus tard, et exporter / importer tous les projets dans un fichier `.json`.
+- **Exporter** en PNG pleine définition ou en **SVG** vectoriel ; **copier un lien de partage** qui contient tout le projet.
 
 Raccourcis : <kbd>N</kbd> nouvelle grille, <kbd>Espace</kbd> animer, <kbd>Échap</kbd> annuler une liaison.
 

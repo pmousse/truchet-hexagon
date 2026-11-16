@@ -19,6 +19,9 @@
     </div>
   </div>
   <div class="actions">
+    <button class="btn" id="btnProjects" title="Enregistrer ou ouvrir un projet">
+      <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <span>Projets</span></button>
     <button class="btn" id="btnShuffle" title="Nouvelle graine aléatoire (N)">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.4" class="fill"/><circle cx="15.5" cy="15.5" r="1.4" class="fill"/><circle cx="15.5" cy="8.5" r="1.4" class="fill"/><circle cx="8.5" cy="15.5" r="1.4" class="fill"/></svg>
       <span>Nouvelle grille</span></button>
@@ -40,8 +43,7 @@
         <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" class="fill"/><circle cx="12" cy="12" r="1.5" class="fill"/><circle cx="19" cy="12" r="1.5" class="fill"/></svg></button>
       <div class="menu-pop right" role="menu">
         <button role="menuitem" data-act="share"><b>Copier le lien de partage</b><small>le projet entier tient dans l'adresse</small></button>
-        <button role="menuitem" data-act="save"><b>Enregistrer le projet…</b><small>fichier .json</small></button>
-        <button role="menuitem" data-act="open"><b>Ouvrir un projet…</b></button>
+        <button role="menuitem" data-act="projects"><b>Projets…</b><small>enregistrer, ouvrir, importer, exporter</small></button>
         <hr>
         <button role="menuitem" data-act="reset" class="danger"><b>Tout réinitialiser</b></button>
       </div>
@@ -150,6 +152,23 @@
     </div>
   </main>
 </div>
+
+<dialog id="projectsDlg" class="dialog" aria-labelledby="projTitle">
+  <div class="dialog-head">
+    <h2 id="projTitle">Projets</h2>
+    <button class="btn icon ghost" id="projClose" title="Fermer" aria-label="Fermer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="inline-form">
+    <input type="text" id="projName" maxlength="60" placeholder="Nom du projet" aria-label="Nom du projet" autocomplete="off">
+    <button class="btn primary" id="projSave">Enregistrer</button>
+  </div>
+  <p class="hint">Enregistre l'état complet : tuiles, style, couleurs, cadre et cases retouchées. Un nom déjà utilisé met ce projet à jour. Les projets restent dans ce navigateur ; exportez-les dans un fichier pour les garder ou les transférer.</p>
+  <ul class="projects" id="projList"></ul>
+  <div class="btn-row dialog-foot">
+    <button class="btn sm" id="projImport">Importer un fichier…</button>
+    <button class="btn sm" id="projExport">Exporter le fichier</button>
+  </div>
+</dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
