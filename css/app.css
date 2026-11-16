@@ -91,9 +91,6 @@ svg .fill { fill: currentColor; stroke: none; }
 .btn.ghost { background: transparent; }
 .btn.danger { color: var(--accent); }
 .btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-#btnAnim .i-pause, #btnAnim[aria-pressed="true"] .i-play { display: none; }
-#btnAnim[aria-pressed="true"] .i-pause { display: block; }
-#btnAnim .i-play { fill: currentColor; }
 
 .menu { position: relative; }
 .menu-pop {

@@ -213,10 +213,8 @@ function normals(pts, closed) {
   return N;
 }
 
-const FX = ['none', 'rayures', 'pointilles'];
-
 /* geo + styleFor(tid) → liste ordonnée de traits à peindre */
-TH.buildStrokes = function buildStrokes(geo, styleFor, opts = {}) {
+TH.buildStrokes = function buildStrokes(geo, styleFor) {
   const out = [];
   geo.curves.forEach((c, ci0) => {
     if (c.pts.length < 2) return;
@@ -245,15 +243,12 @@ TH.buildStrokes = function buildStrokes(geo, styleFor, opts = {}) {
                     suivent la palette à partir de là (comme la première version)
            ribbon : tout le ruban d'une couleur, différente de ses voisines */
         const ci = S.colorMode === 'band' ? j : S.colorMode === 'ribbon' ? ribbon : rnd0 + j;
-        let fx = S.fx;
-        if (opts.fxRandom) fx = FX[Math.floor(TH.rng(c.hash, j, 'fx')() * FX.length)];
         let k = 0;
         for (const p of pts) k += p[0] * P.dir[0] + p[1] * P.dir[1];
         band.push({
-          pts, closed: whole && c.closed, S, P, fx, h: 0,
+          pts, closed: whole && c.closed, S, P, h: 0,
           color: pal[ci % pal.length],
           w: P.lw * profileAt(S.profile, j, P.B),
-          sign: c.hash & 1 ? 1 : -1,
           key: k / pts.length + j * 1e-6,
         });
       }
@@ -299,13 +294,7 @@ function gridPath(cells) {
   return p;
 }
 
-const fxDash = (fx, w) => {
-  if (fx === 'rayures') { const a = Math.max(w * 0.45, 0.01), b = Math.max(w * 0.85, 0.02); return { dash: [a, b], period: a + b, width: w, color: 'rgba(0,0,0,0.5)', cap: 'butt' }; }
-  if (fx === 'pointilles') { const b = Math.max(w * 1.05, 0.03); return { dash: [0.001, b], period: b + 0.001, width: w * 0.35, color: 'rgba(255,255,255,0.85)', cap: 'round' }; }
-  return null;
-};
-
-/* scene = {cells, strokes}, view = {W, H, R, ox, oy}, opts = {bg, showGrid, phase} */
+/* scene = {cells, strokes}, view = {W, H, R, ox, oy}, opts = {bg, transparent, showGrid} */
 TH.paint = function paint(ctx, scene, view, opts) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
@@ -316,14 +305,13 @@ TH.paint = function paint(ctx, scene, view, opts) {
   }
   ctx.setTransform(...TH.viewTransform(view));
   ctx.lineJoin = 'round';
-  const R = view.R, minW = 0.6 / R, phase = opts.phase || 0;
+  const R = view.R, minW = 0.6 / R;
   const noShadow = () => { ctx.shadowColor = 'transparent'; ctx.shadowBlur = ctx.shadowOffsetX = ctx.shadowOffsetY = 0; };
 
   for (const s of scene.strokes) {
     const S = s.S, P = s.P, path = pathOf(s), w = Math.max(s.w, minW);
     ctx.globalAlpha = S.alpha;
     ctx.lineCap = 'butt';
-    ctx.setLineDash([]);
     if (S.shadow) {
       /* l'ombre canvas ne suit pas la transformation : on la passe en pixels */
       ctx.shadowColor = `rgba(0,0,0,${S.shadowOpacity})`;
@@ -342,20 +330,8 @@ TH.paint = function paint(ctx, scene, view, opts) {
     ctx.strokeStyle = s.color;
     ctx.stroke(path);
     noShadow();
-
-    const fx = fxDash(s.fx, w);
-    if (fx) {
-      ctx.globalAlpha = S.alpha * 0.55;
-      ctx.setLineDash(fx.dash);
-      ctx.lineDashOffset = s.sign * phase * fx.period;
-      ctx.lineCap = fx.cap;
-      ctx.lineWidth = fx.width;
-      ctx.strokeStyle = fx.color;
-      ctx.stroke(path);
-    }
   }
   ctx.globalAlpha = 1;
-  ctx.setLineDash([]);
   noShadow();
 
   if (opts.showGrid) {
@@ -397,11 +373,6 @@ TH.toSVG = function toSVG(scene, view, opts) {
     const g = [];
     if (S.outline > 0) g.push(`<path d="${dd}" stroke="${S.outlineColor}" stroke-width="${f(w + 2 * S.outline * P.lw)}"${sh}/>`);
     g.push(`<path d="${dd}" stroke="${s.color}" stroke-width="${w}"${S.outline > 0 ? '' : sh}/>`);
-    const fx = fxDash(s.fx, w);
-    if (fx) {
-      const col = s.fx === 'rayures' ? 'stroke="#000" stroke-opacity="0.5"' : 'stroke="#fff" stroke-opacity="0.85"';
-      g.push(`<path d="${dd}" ${col} stroke-width="${f(fx.width)}" stroke-linecap="${fx.cap}" stroke-dasharray="${fx.dash.map(f).join(' ')}" opacity="0.55"/>`);
-    }
     body.push(S.alpha < 1 ? `<g opacity="${S.alpha}">${g.join('')}</g>` : g.join(''));
   }
   if (opts.showGrid) {

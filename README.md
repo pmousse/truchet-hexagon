@@ -7,7 +7,7 @@ Un petit atelier, dans le navigateur, pour composer des images à partir de **tu
 ## Ce qu'on peut faire
 
 - **Dessiner ses tuiles** : cliquer deux points pour les relier (petit arc, grand arc ou droite selon l'écart entre les arêtes), activer ou non chaque tuile, régler sa fréquence. « Formes de base » ajoute d'un coup toutes les formes possibles.
-- **Styler les rubans** : nombre de bandes, épaisseur, écart, profil, opacité, contour, ombre portée, motif rayé ou pointillé (animable).
+- **Styler les rubans** : nombre de bandes, épaisseur, écart, profil, opacité, contour, ombre portée, relief des bandes.
 - **Sélection de tuiles** : clic pour en choisir une, <kbd>Ctrl</kbd> clic pour en ajouter ou retirer, <kbd>Maj</kbd> clic pour une plage. Activer, fréquence, dupliquer et supprimer s'appliquent à toute la sélection.
 - **Style par tuile** : dans Style, « Appliquer à : Sélection » donne aux tuiles sélectionnées leurs propres couleurs ou bandes ; les autres réglages restent communs.
 - **Couleurs** : palettes prêtes à l'emploi, palettes enregistrées, import d'un JSON (`{"colors": ["#…", …]}`) ou d'une simple liste de codes hex.
@@ -16,7 +16,7 @@ Un petit atelier, dans le navigateur, pour composer des images à partir de **tu
 - **Projets** : enregistrer l'état complet sous un nom (tuiles, style, couleurs, cadre, cases retouchées), le rouvrir plus tard, et exporter / importer tous les projets dans un fichier `.json`.
 - **Exporter** en PNG pleine définition ou en **SVG** vectoriel ; **copier un lien de partage** qui contient tout le projet.
 
-Raccourcis : <kbd>N</kbd> nouvelle grille, <kbd>Espace</kbd> animer, <kbd>Échap</kbd> annuler une liaison.
+Raccourcis : <kbd>N</kbd> nouvelle grille, <kbd>Échap</kbd> annuler une liaison.
 
 ## Organisation du code
 

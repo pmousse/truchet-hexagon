@@ -48,8 +48,6 @@ const STYLE_DEFS = [
     fmt: (v) => (v ? '× ' + v.toFixed(2) : 'à plat'), show: (S) => S.shadow && S.bands > 1,
     title: 'Écart de hauteur entre la bande la plus basse et la plus haute d’un ruban : chaque bande porte son ombre sur sa voisine' },
   { k: 'shadowBlur', panel: 'styleShade', label: 'Flou', type: 'range', min: 0, max: 2, step: 0.05, def: 0.6, fmt: (v) => '× ' + v.toFixed(2), show: (S) => S.shadow },
-  { k: 'fx', panel: 'styleFx', label: 'Motif sur les bandes', type: 'select', def: 'none',
-    options: [['none', 'Aucun (uni)'], ['rayures', 'Rayures'], ['pointilles', 'Pointillés']] },
   { k: 'palette', type: 'palette', def: PRESETS[0].colors },
 ];
 
@@ -76,9 +74,6 @@ const SETTING_DEFS = [
   { k: 'randomShapes', panel: 'gridControls', label: 'Formes tirées au sort', type: 'toggle', def: false, title: 'Chaque case reçoit une forme au hasard ; les tuiles ne donnent plus que leur style' },
   { k: 'longArcs', panel: 'gridControls', label: '… avec les grands arcs', type: 'toggle', def: true, show: (s) => s.randomShapes },
   { k: 'showGrid', panel: 'gridControls', label: 'Afficher le quadrillage', type: 'toggle', def: false },
-  { k: 'fxRandom', panel: 'styleFx', label: 'Motif tiré au sort par bande', type: 'toggle', def: false },
-  { k: 'animSpeed', panel: 'styleFx', label: 'Vitesse d’animation', type: 'range', min: 0.2, max: 3, step: 0.1, def: 1, fmt: (v) => '× ' + v.toFixed(1) },
-  { k: 'anim', type: 'hidden', def: false },
   { k: 'transparent', type: 'toggle', def: false },
 ];
 
@@ -155,7 +150,7 @@ let LIB = (lsGet(LS_PALETTES) || []).map((p) => ({ name: String(p && p.name || '
   .filter((p) => p.colors.length);
 const ui = {
   selected: P.tiles[0].id, multi: new Set([P.tiles[0].id]), anchor: P.tiles[0].id, target: 'global', picked: null, drag: false, pointer: null, hoverHandle: null,
-  hoverCell: null, phase: 0, raf: 0, L: null, view: null, k: 1,
+  hoverCell: null, L: null, view: null, k: 1,
 };
 
 const tileById = (id) => P.tiles.find((t) => t.id === id) || null;
@@ -224,10 +219,10 @@ function sceneFor(cells, gridKey, small) {
   let geo = gc.get(gridKey);
   if (!geo) { geo = TH.buildGeometry(cells); cachePut(gc, gridKey, geo, max); }
   const tids = [...new Set(cells.map((c) => c.tid))];
-  const sk = gridKey + '#' + tids.map((t) => styleFor(t).sig).join('|') + '#' + P.settings.fxRandom;
+  const sk = gridKey + '#' + tids.map((t) => styleFor(t).sig).join('|');
   let sc = sc0.get(sk);
   if (!sc) {
-    sc = { cells, strokes: TH.buildStrokes(geo, styleFor, { fxRandom: P.settings.fxRandom }) };
+    sc = { cells, strokes: TH.buildStrokes(geo, styleFor) };
     cachePut(sc0, sk, sc, max);
   }
   return sc;
@@ -254,8 +249,7 @@ function fitFrame(L) {
   let w = Math.min(aw, ah * ar), h = w / ar;
   frame.style.width = Math.round(w) + 'px';
   frame.style.height = Math.round(h) + 'px';
-  /* pendant l'animation on dessine en 1× : la fluidité compte plus que la finesse */
-  const dpr = P.settings.anim ? 1 : Math.min(2, window.devicePixelRatio || 1);
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
   const bw = Math.max(1, Math.round(Math.min(L.W, 2400, w * dpr)));
   const k = bw / L.W, bh = Math.max(1, Math.round(L.H * k));
   for (const c of [cv, ov]) if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; }
@@ -322,7 +316,7 @@ function paintTile(canvas, tile, cssW, cssH, Rfrac) {
   c.save();
   hexPathPx(c, cx, cy, R);
   c.clip();
-  TH.paint(c, sc, { W, H, R, ox: cx - (R * TH.SQ3) / 2, oy: cy - R }, { bg: P.settings.bg, phase: P.settings.anim ? ui.phase : 0 });
+  TH.paint(c, sc, { W, H, R, ox: cx - (R * TH.SQ3) / 2, oy: cy - R }, { bg: P.settings.bg });
   c.restore();
   hexPathPx(c, cx, cy, R);
   c.lineWidth = 1 * dpr;
@@ -673,7 +667,7 @@ const settingsBind = {
     if (k === 'density' || k === 'seed' || k === 'format' || k === 'res' || k === 'customW' || k === 'customH' || k === 'randomShapes' || k === 'fit') P.edits = {};
     save();
     syncSettings();
-    if (k === 'bg' || k === 'fxRandom') { renderTileGrid(); renderEditor(); }
+    if (k === 'bg') { renderTileGrid(); renderEditor(); }
     requestRender();
     updateInfo();
   },
@@ -885,43 +879,10 @@ function editCell(c, how) {
   requestRender();
 }
 
-/* ═════ animation ═════════════════════════════════════════════════════ */
-function anyFx() {
-  return P.settings.fxRandom || P.style.fx !== 'none' || P.tiles.some((t) => t.style.fx && t.style.fx !== 'none');
-}
-function setAnim(on) {
-  P.settings.anim = on;
-  if (on && !anyFx()) {
-    P.style.fx = 'rayures';
-    syncStyle(); renderTileGrid();
-    toast('Motif « rayures » activé : l’animation fait défiler les motifs');
-  }
-  $('btnAnim').setAttribute('aria-pressed', String(on));
-  $('btnAnim').querySelector('span').textContent = on ? 'Pause' : 'Animer';
-  save();
-  if (on && !ui.raf) {
-    let last = performance.now();
-    const tick = (now) => {
-      if (!P.settings.anim) { ui.raf = 0; return; }
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      ui.phase = (ui.phase + dt * P.settings.animSpeed * 0.45) % 1;
-      if (!document.hidden) {
-        renderMain();
-        if (document.querySelector('.section[data-id="tiles"]').open) renderEditor();
-      }
-      ui.raf = requestAnimationFrame(tick);
-    };
-    ui.raf = requestAnimationFrame(tick);
-  }
-  requestRender();
-}
-$('btnAnim').onclick = () => setAnim(!P.settings.anim);
-
 /* ═════ rendu différé ═════════════════════════════════════════════════ */
 let pending = 0;
 function requestRender() {
-  if (pending || P.settings.anim) return;
+  if (pending) return;
   pending = requestAnimationFrame(() => { pending = 0; renderMain(); updateInfo(); });
 }
 new ResizeObserver(() => { requestRender(); renderEditor(); }).observe(stage);
@@ -947,7 +908,7 @@ function fullView() {
 }
 const baseName = () => { const L = TH.layout(P.settings); return `truchet-hex-${L.W}x${L.H}-${P.settings.seed}`; };
 
-const paintOpts = () => ({ bg: P.settings.bg, transparent: P.settings.transparent, showGrid: P.settings.showGrid, phase: P.settings.anim ? ui.phase : 0 });
+const paintOpts = () => ({ bg: P.settings.bg, transparent: P.settings.transparent, showGrid: P.settings.showGrid });
 
 function exportPNG() {
   toast('Préparation de l’image…');
@@ -1053,7 +1014,6 @@ function loadProject(raw, msg) {
   ui.picked = null;
   save();
   syncAll();
-  setAnim(P.settings.anim);
   if (msg) toast(msg);
 }
 
@@ -1221,7 +1181,6 @@ document.addEventListener('keydown', (e) => {
   }
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'n' || e.key === 'N') shuffle();
-  else if (e.key === ' ' && document.activeElement.tagName !== 'BUTTON') { e.preventDefault(); setAnim(!P.settings.anim); }
 });
 
 /* toast */
@@ -1268,6 +1227,5 @@ TH.app = { get project() { return P; }, shareLink, readLink, svg: () => { const 
     history.replaceState(null, '', location.pathname + location.search);
   }
   syncAll();
-  if (P.settings.anim) setAnim(true);
 })();
 })();
