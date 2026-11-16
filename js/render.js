@@ -266,8 +266,11 @@ const fxDash = (fx, w) => {
 TH.paint = function paint(ctx, scene, view, opts) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
-  ctx.fillStyle = opts.bg;
-  ctx.fillRect(0, 0, view.W, view.H);
+  ctx.clearRect(0, 0, view.W, view.H);
+  if (!opts.transparent) {
+    ctx.fillStyle = opts.bg;
+    ctx.fillRect(0, 0, view.W, view.H);
+  }
   ctx.setTransform(...TH.viewTransform(view));
   ctx.lineJoin = 'round';
   const R = view.R, minW = 0.6 / R, phase = opts.phase || 0;
@@ -368,7 +371,7 @@ TH.toSVG = function toSVG(scene, view, opts) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<svg xmlns="http://www.w3.org/2000/svg" width="${view.W}" height="${view.H}" viewBox="0 0 ${view.W} ${view.H}">\n` +
     `<defs><clipPath id="frame"><rect width="${view.W}" height="${view.H}"/></clipPath>${[...filters.values()].join('')}</defs>\n` +
-    `<rect width="${view.W}" height="${view.H}" fill="${opts.bg}"/>\n` +
+    (opts.transparent ? '' : `<rect width="${view.W}" height="${view.H}" fill="${opts.bg}"/>\n`) +
     `<g clip-path="url(#frame)"><g transform="matrix(${f(a)} 0 0 ${f(d)} ${f(e)} ${f(ff)})" fill="none" stroke-linejoin="round" stroke-linecap="butt">\n` +
     body.join('\n') + `\n</g></g>\n</svg>\n`;
 };

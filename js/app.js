@@ -57,16 +57,16 @@ const FORMAT_OPTS = [
   ['custom', 'Taille libre…'],
 ];
 const SETTING_DEFS = [
-  { k: 'format', panel: 'gridControls', label: 'Format', type: 'select', def: '1:1', options: FORMAT_OPTS },
-  { k: 'res', panel: 'gridControls', label: 'Définition', type: 'select', def: 2048, num: true, show: (s) => s.format !== 'custom',
+  { k: 'format', label: 'Format', type: 'select', def: '1:1', options: FORMAT_OPTS },
+  { k: 'res', label: 'Définition', type: 'select', def: 2048, num: true, show: (s) => s.format !== 'custom',
     options: [[1024, '1K — 1024 px'], [2048, '2K — 2048 px'], [3840, '4K — 3840 px'], [8192, '8K — 8192 px']] },
-  { k: 'customW', panel: 'gridControls', label: 'Largeur (px)', type: 'number', min: 64, max: 8192, def: 1600, show: (s) => s.format === 'custom' },
-  { k: 'customH', panel: 'gridControls', label: 'Hauteur (px)', type: 'number', min: 64, max: 8192, def: 900, show: (s) => s.format === 'custom' },
+  { k: 'customW', label: 'Largeur (px)', type: 'number', min: 64, max: 8192, def: 1600, show: (s) => s.format === 'custom' },
+  { k: 'customH', label: 'Hauteur (px)', type: 'number', min: 64, max: 8192, def: 900, show: (s) => s.format === 'custom' },
   { k: 'density', panel: 'gridControls', label: 'Densité', type: 'range', min: 1, max: () => TH.densityMax(P.settings), step: 1, def: 8,
     fmt: (v) => v + ' hex.', title: 'Nombre d’hexagones sur le côté court du cadre' },
   { k: 'fit', panel: 'gridControls', label: 'Cadrage', type: 'segmented', def: 'bleed',
     options: [['bleed', 'Bord à bord'], ['whole', 'Hexagones entiers']] },
-  { k: 'margin', panel: 'gridControls', label: 'Marge', type: 'range', min: 0, max: 25, step: 1, def: 0, fmt: (v) => v + ' %' },
+  { k: 'margin', label: 'Marge', type: 'range', min: 0, max: 25, step: 1, def: 0, fmt: (v) => v + ' %' },
   { k: 'bg', panel: 'gridControls', label: 'Fond', type: 'color', def: PRESETS[0].bg },
   { k: 'seed', panel: 'gridControls', label: 'Graine', type: 'number', min: 1, max: 999999, def: 7, title: 'Même graine = même grille' },
   { k: 'rotate', panel: 'gridControls', label: 'Rotations aléatoires', type: 'toggle', def: true },
@@ -76,6 +76,7 @@ const SETTING_DEFS = [
   { k: 'fxRandom', panel: 'styleFx', label: 'Motif tiré au sort par bande', type: 'toggle', def: false },
   { k: 'animSpeed', panel: 'styleFx', label: 'Vitesse d’animation', type: 'range', min: 0.2, max: 3, step: 0.1, def: 1, fmt: (v) => '× ' + v.toFixed(1) },
   { k: 'anim', type: 'hidden', def: false },
+  { k: 'transparent', type: 'toggle', def: false },
 ];
 
 const DEFAULT_TILES = [
@@ -243,7 +244,7 @@ function fitFrame(L) {
   const cs = getComputedStyle(stage);
   const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
   const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-  const bar = stage.querySelector('.stage-bar').offsetHeight + 12;
+  const bar = stage.querySelector('.stage-bar').offsetHeight + $('formats').offsetHeight + 24;
   const aw = Math.max(80, stage.clientWidth - padX), ah = Math.max(80, stage.clientHeight - padY - bar);
   const ar = L.W / L.H;
   let w = Math.min(aw, ah * ar), h = w / ar;
@@ -262,7 +263,8 @@ function renderMain() {
   const k = fitFrame(L);
   const view = { W: cv.width, H: cv.height, R: L.R * k, ox: L.ox * k, oy: L.oy * k };
   const sc = mainScene(L);
-  TH.paint(ctx, sc, view, { bg: P.settings.bg, showGrid: P.settings.showGrid, phase: P.settings.anim ? ui.phase : 0 });
+  TH.paint(ctx, sc, view, paintOpts());
+  frame.classList.toggle('checker', P.settings.transparent);
   ui.L = L; ui.view = view; ui.k = k; ui.scene = sc;
   drawOverlay();
 }
@@ -273,7 +275,7 @@ function updateInfo() {
   $('tilesCount').textContent = on + ' / ' + P.tiles.length + ' en jeu';
   $('gridInfo').textContent = L.cols + ' × ' + L.rows;
   $('frameInfo').textContent = `${L.W} × ${L.H} px · ${L.cols} × ${L.rows} hexagones · graine ${P.settings.seed}`;
-  $('pngSize').textContent = `${L.W} × ${L.H} px`;
+  syncFrameUI();
 }
 
 function drawOverlay() {
@@ -674,7 +676,10 @@ for (const d of SETTING_DEFS) if (d.panel) $(d.panel).appendChild(buildControl(d
 const styleControls = controls.filter((c) => STYLE_DEFS.includes(c.d));
 const settingControls = controls.filter((c) => SETTING_DEFS.includes(c.d));
 
-function syncSettings() { settingControls.forEach((c) => c.sync()); }
+function syncSettings() {
+  settingControls.forEach((c) => c.sync());
+  syncFrameUI();
+}
 function syncStyle() {
   styleControls.forEach((c) => c.sync());
   renderPalette();
@@ -925,13 +930,15 @@ function fullView() {
 }
 const baseName = () => { const L = TH.layout(P.settings); return `truchet-hex-${L.W}x${L.H}-${P.settings.seed}`; };
 
+const paintOpts = () => ({ bg: P.settings.bg, transparent: P.settings.transparent, showGrid: P.settings.showGrid, phase: P.settings.anim ? ui.phase : 0 });
+
 function exportPNG() {
   toast('Préparation de l’image…');
   setTimeout(() => {
     const { L, view } = fullView();
     const c = el('canvas');
     c.width = L.W; c.height = L.H;
-    TH.paint(c.getContext('2d'), mainScene(L), view, { bg: P.settings.bg, showGrid: P.settings.showGrid, phase: P.settings.anim ? ui.phase : 0 });
+    TH.paint(c.getContext('2d'), mainScene(L), view, paintOpts());
     c.toBlob((b) => {
       if (!b) { toast('Image trop grande pour ce navigateur : essayez une définition plus basse'); return; }
       download(b, baseName() + '.png');
@@ -941,10 +948,58 @@ function exportPNG() {
 }
 function exportSVG() {
   const { L, view } = fullView();
-  const svg = TH.toSVG(mainScene(L), view, { bg: P.settings.bg, showGrid: P.settings.showGrid });
+  const svg = TH.toSVG(mainScene(L), view, paintOpts());
   download(new Blob([svg], { type: 'image/svg+xml' }), baseName() + '.svg');
   toast('SVG exporté');
 }
+
+/* ═════ cadre : pastilles de format au-dessus de l'image, fenêtre Export ═ */
+const FORMAT_CHIPS = ['1:1', '4:5', '3:4', '2:3', '9:16', '16:9', '3:2', '4:3', '21:9', 'custom'];
+const RES_CHIPS = [[1024, '1K'], [2048, '2K'], [3840, '4K'], [8192, '8K']];
+function chipRow(box, items, get, set) {
+  const btns = items.map(([v, label]) => {
+    const b = el('button', null, label);
+    b.type = 'button';
+    b.onclick = () => set(v);
+    box.appendChild(b);
+    return [v, b];
+  });
+  return () => btns.forEach(([v, b]) => b.setAttribute('aria-pressed', String(get() === v)));
+}
+const frameSyncs = [
+  chipRow($('formatChips'), FORMAT_CHIPS.map((f) => [f, f === 'custom' ? 'Libre' : f]), () => P.settings.format, (v) => settingsBind.set('format', v)),
+  chipRow($('resChips'), RES_CHIPS, () => P.settings.res, (v) => settingsBind.set('res', v)),
+];
+const marginCtl = buildControl(SETTING_DEFS.find((d) => d.k === 'margin'), settingsBind);
+const transpCtl = buildControl({ k: 'transparent', label: 'Fond transparent', type: 'toggle' }, settingsBind);
+$('exportControls').append(marginCtl.row, transpCtl.row);
+for (const id of ['customW', 'customH', 'expW', 'expH']) {
+  const k = id.endsWith('W') ? 'customW' : 'customH';
+  $(id).addEventListener('change', (e) => {
+    const v = cleanVal(SETTING_DEFS.find((d) => d.k === k), e.target.value);
+    if (v !== undefined) settingsBind.set(k, v); else syncFrameUI();
+  });
+}
+function syncFrameUI() {
+  frameSyncs.forEach((f) => f());
+  marginCtl.sync();
+  transpCtl.sync();
+  const custom = P.settings.format === 'custom';
+  $('customSize').hidden = !custom;
+  $('resRow').hidden = custom;
+  $('expCustom').hidden = !custom;
+  for (const [id, k] of [['customW', 'customW'], ['customH', 'customH'], ['expW', 'customW'], ['expH', 'customH']]) {
+    if (document.activeElement !== $(id)) $(id).value = P.settings[k];
+  }
+  const L = TH.layout(P.settings);
+  $('expName').textContent = `${baseName()}.png · ${L.W} × ${L.H} px`;
+}
+const expDlg = $('exportDlg');
+$('btnExport').onclick = () => { syncFrameUI(); expDlg.showModal(); };
+$('expClose').onclick = () => expDlg.close();
+expDlg.addEventListener('click', (e) => { if (e.target === expDlg) expDlg.close(); });
+$('expPNG').onclick = () => { expDlg.close(); exportPNG(); };
+$('expSVG').onclick = () => { expDlg.close(); exportSVG(); };
 
 /* lien de partage : projet compressé dans l'adresse */
 const b64u = {
@@ -1137,10 +1192,10 @@ document.addEventListener('click', () => document.querySelectorAll('.menu.open')
 
 /* clavier */
 document.addEventListener('keydown', (e) => {
-  if (dlg.open) return;
+  if (dlg.open || $('exportDlg').open) return;
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && document.activeElement.type !== 'range' && document.activeElement.type !== 'checkbox';
   if (e.key === 'Escape') {
-    if (dlg.open) return;
+    if (dlg.open || $('exportDlg').open) return;
     document.querySelectorAll('.menu.open').forEach((x) => x.classList.remove('open'));
     if (ui.picked !== null) { ui.picked = null; renderEditor(); }
     return;
@@ -1153,8 +1208,8 @@ document.addEventListener('keydown', (e) => {
 /* toast */
 let toastTimer = 0;
 function toast(msg) {
-  const t = $('toast'), d = $('projectsDlg');
-  const host = d.open ? d : document.body;        // une fenêtre modale passe au-dessus de tout
+  const t = $('toast'), d = [$('projectsDlg'), $('exportDlg')].find((x) => x.open);
+  const host = d || document.body;        // une fenêtre modale passe au-dessus de tout
   if (t.parentNode !== host) host.appendChild(t);
   t.textContent = msg;
   t.classList.add('show');
@@ -1183,7 +1238,7 @@ function syncAll() {
 }
 
 /* accès pour la console du navigateur (débogage) */
-TH.app = { get project() { return P; }, shareLink, readLink, svg: () => { const { L, view } = fullView(); return TH.toSVG(mainScene(L), view, { bg: P.settings.bg, showGrid: P.settings.showGrid }); } };
+TH.app = { get project() { return P; }, shareLink, readLink, svg: () => { const { L, view } = fullView(); return TH.toSVG(mainScene(L), view, paintOpts()); } };
 
 (async function init() {
   if (location.hash.startsWith('#p=')) {

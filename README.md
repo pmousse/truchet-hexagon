@@ -11,7 +11,7 @@ Un petit atelier, dans le navigateur, pour composer des images à partir de **tu
 - **Sélection de tuiles** : clic pour en choisir une, <kbd>Ctrl</kbd> clic pour en ajouter ou retirer, <kbd>Maj</kbd> clic pour une plage. Activer, fréquence, dupliquer et supprimer s'appliquent à toute la sélection.
 - **Style par tuile** : dans Style, « Appliquer à : Sélection » donne aux tuiles sélectionnées leurs propres couleurs ou bandes ; les autres réglages restent communs.
 - **Couleurs** : palettes prêtes à l'emploi, palettes enregistrées, import d'un JSON (`{"colors": ["#…", …]}`) ou d'une simple liste de codes hex.
-- **Cadre** : formats réseaux sociaux / écran / impression ou taille libre, définition jusqu'à 8K, densité, bord à bord ou hexagones entiers, marge, fond.
+- **Cadre** : le format se choisit dans les pastilles au-dessus de l'image (1:1, 4:5, 16:9… ou taille libre). La fenêtre **Exporter** règle le côté long (1K à 8K), la marge et le fond transparent. Densité, cadrage (bord à bord ou hexagones entiers) et couleur de fond sont dans « Grille & cadre ».
 - **Retoucher la grille** : clic sur une case pour la pivoter, ⇧ clic pour changer de tuile, Ctrl clic pour éditer sa tuile, Alt clic (ou clic droit) pour la rétablir.
 - **Projets** : enregistrer l'état complet sous un nom (tuiles, style, couleurs, cadre, cases retouchées), le rouvrir plus tard, et exporter / importer tous les projets dans un fichier `.json`.
 - **Exporter** en PNG pleine définition ou en **SVG** vectoriel ; **copier un lien de partage** qui contient tout le projet.

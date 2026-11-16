@@ -29,15 +29,9 @@
       <svg viewBox="0 0 24 24" class="i-play"><path d="M7 4.5v15l12-7.5z"/></svg>
       <svg viewBox="0 0 24 24" class="i-pause"><path d="M8 5v14M16 5v14"/></svg>
       <span>Animer</span></button>
-    <div class="menu">
-      <button class="btn primary" id="btnExport" aria-haspopup="true">
-        <svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
-        <span>Exporter</span></button>
-      <div class="menu-pop" role="menu">
-        <button role="menuitem" data-act="png"><b>Image PNG</b><small id="pngSize"></small></button>
-        <button role="menuitem" data-act="svg"><b>Image vectorielle SVG</b><small>pour l'impression ou l'édition</small></button>
-      </div>
-    </div>
+    <button class="btn primary" id="btnExport">
+      <svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+      <span>Exporter</span></button>
     <div class="menu">
       <button class="btn icon" id="btnMore" aria-haspopup="true" title="Projet">
         <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" class="fill"/><circle cx="12" cy="12" r="1.5" class="fill"/><circle cx="19" cy="12" r="1.5" class="fill"/></svg></button>
@@ -142,6 +136,13 @@
   </aside>
 
   <main class="stage" id="stage">
+    <div class="formats" id="formats" aria-label="Format">
+      <div class="chips" id="formatChips" role="radiogroup"></div>
+      <div class="custom-size" id="customSize" hidden>
+        <input type="number" id="customW" min="64" max="8192" aria-label="Largeur en pixels"><span>×</span>
+        <input type="number" id="customH" min="64" max="8192" aria-label="Hauteur en pixels"><span>px</span>
+      </div>
+    </div>
     <div class="frame" id="frame">
       <canvas id="view"></canvas>
       <canvas id="overlay"></canvas>
@@ -152,6 +153,30 @@
     </div>
   </main>
 </div>
+
+<dialog id="exportDlg" class="dialog narrow" aria-labelledby="expTitle">
+  <div class="dialog-head">
+    <h2 id="expTitle">Exporter</h2>
+    <button class="btn icon ghost" id="expClose" title="Fermer" aria-label="Fermer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div id="resRow">
+    <div class="sub">Côté long</div>
+    <div class="chips" id="resChips" role="radiogroup"></div>
+  </div>
+  <div id="expCustom" hidden>
+    <div class="sub">Taille libre</div>
+    <div class="custom-size">
+      <input type="number" id="expW" min="64" max="8192" aria-label="Largeur en pixels"><span>×</span>
+      <input type="number" id="expH" min="64" max="8192" aria-label="Hauteur en pixels"><span>px</span>
+    </div>
+  </div>
+  <div id="exportControls"></div>
+  <div class="filename" id="expName"></div>
+  <div class="btn-row dialog-foot">
+    <button class="btn" id="expSVG" title="Image vectorielle, pour l'impression ou l'édition">SVG</button>
+    <button class="btn primary" id="expPNG">Télécharger PNG</button>
+  </div>
+</dialog>
 
 <dialog id="projectsDlg" class="dialog" aria-labelledby="projTitle">
   <div class="dialog-head">
